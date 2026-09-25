@@ -287,6 +287,11 @@
         .slots.on { display: flex; }
         .slots-label { font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
         .slots-label b { color: var(--clay); }
+        .slots.closed .bar { display: none; }
+        .slots.closed .slots-label {
+            color: var(--clay); font-weight: 700; letter-spacing: .04em;
+            text-transform: none; font-size: .86rem;
+        }
         .bar { width: 100%; height: 7px; border-radius: 99px; background: rgba(255, 255, 255, .6); overflow: hidden; box-shadow: inset 0 1px 2px rgba(29, 51, 41, .14); }
         .bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, var(--leaf), var(--gold), var(--clay)); transition: width 1s var(--ease); }
 
@@ -907,7 +912,7 @@
                 </div>
             </div>
 
-            <div class="limit">
+            <div class="limit" id="limitBox">
                 <b>&#9888;&#65039; Limited Slots</b>
                 <p>Only 15 teams will be accepted.</p>
             </div>
@@ -1279,6 +1284,16 @@ const UPI_ID = "";
 // Hard cap on teams. Must match MAX_TEAMS in Code.gs.
 const MAX_TEAMS = 15;
 
+// ---------------------------------------------------------------------
+//  REGISTRATIONS ON/OFF SWITCH
+//  true  = open. The live slot counter runs and the form works.
+//  false = closed. Register buttons are disabled, the form can't open,
+//          and the page says registrations are closed.
+//  Flip this back to true (and re-upload) to reopen registrations.
+//  For a hard close, also set REGISTRATIONS_OPEN = false in Code.gs.
+// ---------------------------------------------------------------------
+const REGISTRATIONS_OPEN = false;
+
 
 /* ---------------------------------------------------------------------
    2. TYPEWRITER  (unchanged behaviour)
@@ -1481,15 +1496,31 @@ function paintSlots(filled, max) {
     });
 }
 
-function closeRegistrations() {
+function closeRegistrations(message) {
     registrationsClosed = true;
     regButtons.forEach(b => {
         b.disabled = true;
         b.textContent = 'Registrations Closed';
     });
+    // Swap the counter for a plain closed message, and retire the
+    // "limited slots" pitch — nobody can act on it any more.
+    slotNodes.forEach(n => {
+        n.box.classList.add('on', 'closed');
+        n.label.textContent = message || 'Registrations are closed.';
+    });
+    const box = document.getElementById('limitBox');
+    if (box) {
+        box.innerHTML = '<b>&#9989; Registrations Closed</b>' +
+            '<p>All teams are confirmed. See you at Base Camp on 26th September, 10:30 AM.</p>';
+    }
 }
 
 async function refreshSlots() {
+    // Closed on purpose: don't ask the backend anything, just show it.
+    if (!REGISTRATIONS_OPEN) {
+        closeRegistrations('Registrations are closed \u2014 all teams are confirmed.');
+        return;
+    }
     // No backend configured yet -> leave the counter hidden, form still usable.
     if (!APPS_SCRIPT_URL) return;
     try {
@@ -1889,6 +1920,13 @@ form.addEventListener('submit', async (e) => {
         }
 
         // Backend said no — explain why, in plain language.
+        if (data.error === 'CLOSED') {
+            closeRegistrations('Registrations are closed \u2014 all teams are confirmed.');
+            backToForm();
+            notice('<b>Registrations Closed.</b> This event is no longer accepting teams.', 'bad');
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+            return;
+        }
         if (data.error === 'FULL') {
             closeRegistrations();
             backToForm();
