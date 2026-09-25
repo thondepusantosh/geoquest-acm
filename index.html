@@ -523,7 +523,6 @@
 
         .row { display: grid; gap: 12px; grid-template-columns: 1fr; }
         @media (min-width: 520px) { .row.two { grid-template-columns: 1fr 1fr; } }
-        @media (min-width: 560px) { .row.three { grid-template-columns: 1fr 1fr 1fr; } }
         .field { margin-bottom: 12px; }
         .field label { display: block; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 5px; }
         .field label .req { color: var(--clay); }
@@ -992,7 +991,12 @@
                             <input type="text" id="m1name" data-k="name" autocomplete="name" placeholder="Full name">
                             <div class="err"></div>
                         </div>
-                        <div class="row three">
+                        <div class="row two">
+                            <div class="field">
+                                <label for="m1roll">Roll No <span class="req">*</span></label>
+                                <input type="text" id="m1roll" data-k="roll" maxlength="20" placeholder="e.g. 22B81A0501">
+                                <div class="err"></div>
+                            </div>
                             <div class="field">
                                 <label for="m1year">Year <span class="req">*</span></label>
                                 <select id="m1year" data-k="year">
@@ -1002,6 +1006,8 @@
                                 </select>
                                 <div class="err"></div>
                             </div>
+                        </div>
+                        <div class="row two">
                             <div class="field">
                                 <label for="m1branch">Branch <span class="req">*</span></label>
                                 <select id="m1branch" data-k="branch">
@@ -1041,7 +1047,12 @@
                             <input type="text" id="m2name" data-k="name" placeholder="Full name">
                             <div class="err"></div>
                         </div>
-                        <div class="row three">
+                        <div class="row two">
+                            <div class="field">
+                                <label for="m2roll">Roll No <span class="req">*</span></label>
+                                <input type="text" id="m2roll" data-k="roll" maxlength="20" placeholder="e.g. 22B81A0501">
+                                <div class="err"></div>
+                            </div>
                             <div class="field">
                                 <label for="m2year">Year <span class="req">*</span></label>
                                 <select id="m2year" data-k="year">
@@ -1051,6 +1062,8 @@
                                 </select>
                                 <div class="err"></div>
                             </div>
+                        </div>
+                        <div class="row two">
                             <div class="field">
                                 <label for="m2branch">Branch <span class="req">*</span></label>
                                 <select id="m2branch" data-k="branch">
@@ -1090,7 +1103,12 @@
                             <input type="text" id="m3name" data-k="name" placeholder="Full name">
                             <div class="err"></div>
                         </div>
-                        <div class="row three">
+                        <div class="row two">
+                            <div class="field">
+                                <label for="m3roll">Roll No <span class="req">*</span></label>
+                                <input type="text" id="m3roll" data-k="roll" maxlength="20" placeholder="e.g. 22B81A0501">
+                                <div class="err"></div>
+                            </div>
                             <div class="field">
                                 <label for="m3year">Year <span class="req">*</span></label>
                                 <select id="m3year" data-k="year">
@@ -1100,6 +1118,8 @@
                                 </select>
                                 <div class="err"></div>
                             </div>
+                        </div>
+                        <div class="row two">
                             <div class="field">
                                 <label for="m3branch">Branch <span class="req">*</span></label>
                                 <select id="m3branch" data-k="branch">
@@ -1493,6 +1513,7 @@ refreshSlots();
 const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
 const BRANCHES = ['IT', 'AIML', 'AIDS'];
 const SECTION_RE = /^[A-Za-z0-9]{1,2}$/;
+const ROLL_RE = /^[A-Za-z0-9/-]{4,20}$/;
 const PHONE_RE = /^[0-9]{10}$/;
 const GMAIL_RE = /^[A-Za-z0-9._%+-]+@gmail\.com$/i;
 
@@ -1535,6 +1556,10 @@ function validateField(input) {
         if (!v) return 'Please select a branch.';
         if (BRANCHES.indexOf(v) === -1) return 'Please select a valid branch.';
     }
+    if (k === 'roll') {
+        if (!v) return 'Roll number is required.';
+        if (!ROLL_RE.test(v)) return 'Enter a valid roll number.';
+    }
     if (k === 'section') {
         if (!v) return 'Section is required.';
         if (!SECTION_RE.test(v)) return 'Enter your section, e.g. A.';
@@ -1557,8 +1582,9 @@ form.querySelectorAll('input[data-k="phone"]').forEach(inp => {
     });
 });
 
-// Section is stored uppercase, so "a" and "A" never become two values.
-form.querySelectorAll('input[data-k="section"]').forEach(inp => {
+// Section and roll number are stored uppercase, so "a" and "A" — or
+// "22b81a0501" and "22B81A0501" — never become two different values.
+form.querySelectorAll('input[data-k="section"], input[data-k="roll"]').forEach(inp => {
     inp.addEventListener('input', () => {
         inp.value = inp.value.toUpperCase();
     });
@@ -1591,12 +1617,21 @@ function validateForm() {
     });
 
     // b) duplicates inside this team
-    const seenPhone = {}, seenMail = {};
+    const seenPhone = {}, seenMail = {}, seenRoll = {};
     memberSets.forEach((fs, i) => {
         const phone = fs.querySelector('[data-k="phone"]');
         const mail = fs.querySelector('[data-k="gmail"]');
+        const roll = fs.querySelector('[data-k="roll"]');
         const p = phone.value.trim();
         const g = mail.value.trim().toLowerCase();
+        const r = roll.value.trim().toUpperCase();
+
+        if (r && ROLL_RE.test(r)) {
+            if (seenRoll[r] !== undefined) {
+                setError(roll, 'Already used by Teammate ' + (seenRoll[r] + 1) + '.');
+                if (!firstBad) firstBad = roll;
+            } else seenRoll[r] = i;
+        }
 
         if (p && PHONE_RE.test(p)) {
             if (seenPhone[p] !== undefined) {
@@ -1798,6 +1833,7 @@ function collectPayload() {
         teamName: document.getElementById('teamName').value.trim(),
         members: memberSets.map(fs => ({
             name: fs.querySelector('[data-k="name"]').value.trim(),
+            roll: fs.querySelector('[data-k="roll"]').value.trim().toUpperCase(),
             year: fs.querySelector('[data-k="year"]').value.trim(),
             branch: fs.querySelector('[data-k="branch"]').value.trim(),
             section: fs.querySelector('[data-k="section"]').value.trim().toUpperCase(),
